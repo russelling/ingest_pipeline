@@ -1,0 +1,14 @@
+# Optional. Drop this alongside a vendor delivery's files as `manifest.yml`
+# for explicit naming, or to override the asset name inferred from the
+# folder. See ingest_asset.py docstring for full behavior.
+#
+# asset_type is normally NOT needed here -- it comes from which standing
+# incoming/<Type>/ folder the delivery is dropped into (e.g. incoming/Prop/).
+# Only set it below if this specific delivery genuinely needs to differ from
+# its folder; doing so is logged as an explicit override.
+
+asset_name: HeroChair
+source_file: HeroChair.fbx  # relative path within this folder; omit if only
+                              # one accepted-extension file is present
+# asset_type: Prop          # optional override, see note above
+# artist: vendor_xyz        # optional, else config.yml qt_watcher.default_artist

@@ -1,0 +1,12 @@
+# Standard PyPI dependencies
+PyYAML>=6.0
+
+# shotgun_api3 is not on PyPI -- install from Autodesk's GitHub, pinned to a
+# release tag for reproducibility:
+#   pip install git+https://github.com/shotgunsoftware/python-api.git@v3.5.1
+#
+# sgtk (Toolkit core) is not a pip package either. It's normally provided by
+# your Toolkit installation (the same tk-core your Desktop/engines use).
+# Point PYTHONPATH at your tk-core checkout, e.g.:
+#   export PYTHONPATH="/opt/shotgrid/tk-core/python:$PYTHONPATH"
+# See README.md "Environment setup".

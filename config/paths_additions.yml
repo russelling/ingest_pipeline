@@ -1,0 +1,37 @@
+# =============================================================================
+# paths_additions.yml -- NOT NEEDED, kept only to explain why
+#
+# Earlier drafts of this pipeline assumed a config/paths.yml file existed in
+# FlowTrackingConfig (per CLAUDE_INSTRUCTIONS.md's described repo layout).
+# Checked directly against the live repo (main): that file does not exist,
+# and never did -- CLAUDE_INSTRUCTIONS.md's layout was aspirational there.
+#
+# The real repo resolves DCC executable paths through:
+#   env/includes/app_locations.yml    (app_store location descriptors)
+#   env/includes/software_paths.yml   (path.<os>.<dcc> values, consumed by
+#                                       env/includes/settings/tk-multi-launchapp.yml)
+#
+# Blender's path is ALREADY there (as a placeholder, marked "update to match
+# this studio's actual install locations" in a comment on that file):
+#   path.mac.blender:     /Applications/Blender.app/Contents/MacOS/Blender
+#   path.linux.blender:   /usr/bin/blender
+#   path.windows.blender: C:\Program Files\Blender Foundation\Blender\blender.exe
+#
+# These happen to already match pipeline/ingest_turntable/config.yml's
+# executables.blender defaults (coincidence of both using Blender's common
+# default install paths, not because one reads the other -- there is no
+# single source of truth between Toolkit's interactive DCC launching and
+# this pipeline's headless subprocess calls; update both places if your
+# actual Blender install path differs from the placeholder).
+#
+# oiiotool is not a launchable DCC (tk-multi-launchapp has no engine for
+# it), so it has no home in software_paths.yml either way. It only needs to
+# live in pipeline/ingest_turntable/config.yml's executables.oiiotool,
+# which this delivery already sets.
+#
+# Action needed: NONE in config/paths.yml (it doesn't exist and doesn't
+# need to). Just confirm env/includes/software_paths.yml's path.*.blender
+# values are correct for your studio, and confirm
+# pipeline/ingest_turntable/config.yml's executables.blender /
+# executables.oiiotool match your actual installs.
+# =============================================================================

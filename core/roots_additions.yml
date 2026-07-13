@@ -1,0 +1,34 @@
+# =============================================================================
+# roots_additions.yml -- NOT NEEDED, kept only to explain why
+#
+# Earlier drafts of this pipeline registered `incoming` as a second Toolkit
+# storage root (a new core/roots.yml entry, which requires a matching
+# ShotGrid Local Storage entity). That's unnecessary complexity: the watch
+# folder is plain filesystem, never resolved through a Toolkit template --
+# watch_folder.py / ingest_asset.py read its path straight from
+# pipeline/ingest_turntable/config.yml's watch_folder.*_path, not via sgtk.
+#
+# The live core/roots.yml (checked against main) defines a single root:
+#
+#   primary:
+#     mac_path: /Volumes/atv-post-lucid3/atv-buffalo-s03
+#
+# which is also the parent of everything BUF_Mac_watcher/scripts/qt_watcher.py
+# and qt_bake_oiio.py already point at (.../buffalo_vfx/shots,
+# .../buffalo_vfx/assets, .../buffalo_vfx/color, etc.).
+#
+# Recommendation: just point pipeline/ingest_turntable/config.yml's
+# watch_folder.mac_path at a plain subfolder under that same tree. Currently
+# set to live inside assets/ specifically:
+#
+#   watch_folder:
+#     mac_path: /Volumes/atv-post-lucid3/atv-buffalo-s03/buffalo_vfx/assets/incoming
+#
+# (nesting it under assets/ means qt_watcher's os.walk(ASSETS_ROOT) also
+# traverses incoming/ every poll -- harmless, see config.yml's comment on
+# qt_watcher.assets_root for the one-line explanation.)
+#
+# No core/roots.yml change, no new ShotGrid Local Storage entity, no Toolkit
+# folder creation involved for `incoming` at all -- it's just a drop folder
+# this pipeline's own watcher polls directly.
+# =============================================================================

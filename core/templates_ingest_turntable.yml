@@ -1,0 +1,67 @@
+# =============================================================================
+# templates_ingest_turntable.yml
+#
+# Verified against the live core/templates.yml on russelling/FlowTrackingConfig
+# @ main (fetched directly, not assumed from CLAUDE_INSTRUCTIONS.md). That
+# file already defines everything the turntable step needs:
+#
+#   asset_root                    ('assets/{sg_asset_type}/{Asset}')
+#   asset_source_area             ('@asset_root/source' -- "raw scans,
+#                                  purchased assets, original deliverables",
+#                                  already schema'd as a static folder --
+#                                  exactly what a vendor delivery is)
+#   asset_publish_area            ('@asset_root/publish' -- single shared
+#                                  publish folder for all DCCs, already
+#                                  schema'd)
+#   unreal_asset_turntable_render ('@asset_root/render/work/{Asset}_turntable_v{version}/
+#                                  {Asset}_turntable_v{version}.{SEQ}.exr')
+#   unreal_asset_turntable_flag   ('.../.render_complete_{Asset}_turntable_v{version}.json')
+#   unreal_asset_turntable_movie  ('@asset_root/review/{Asset}_turntable_v{version}.mov')
+#
+# So this file only adds the two things that genuinely don't exist yet:
+# ingest-specific keys, and the two new ingest path templates. It does NOT
+# add a new turntable render/flag/movie template -- generate_turntable.py
+# reuses the unreal_asset_turntable_* ones directly (see README.md
+# "qt_watcher integration" for why that's fine even though this pipeline
+# renders with Blender, not Unreal).
+#
+# MERGE INSTRUCTIONS:
+#   1. Copy the entries under `keys:` into the `keys:` block of core/templates.yml
+#   2. Copy the entries under `paths:` into the `paths:` block of core/templates.yml
+#   3. Do NOT paste this file in as a separate top-level document -- templates.yml
+#      is a single YAML file with one `keys:` map and one `paths:` map.
+# =============================================================================
+
+keys:
+  # Original filename (no extension) of a vendor/external delivery, preserved
+  # so the raw source is traceable back to what the vendor sent.
+  original_basename:
+    type: str
+
+  # Source format of an incoming asset delivery, prior to USD conversion.
+  ingest_extension:
+    type: str
+    choices:
+      fbx: FBX
+      obj: OBJ
+      abc: Alembic
+      gltf: glTF (JSON)
+      glb: glTF (binary)
+      max: 3ds Max
+      usd: USD
+      usdc: USD (binary)
+      usda: USD (ASCII)
+      usdz: USD (zipped)
+
+paths:
+  # Raw, untouched vendor/downloaded file -- lands in the EXISTING
+  # asset_source_area ('raw scans, purchased assets, original deliverables'),
+  # not a new folder.
+  asset_ingest_source_file:
+    definition: '@asset_source_area/{original_basename}.{ingest_extension}'
+
+  # Converted, pipeline-standard USD -- lands in the EXISTING shared
+  # asset_publish_area, named consistently with maya_asset_publish /
+  # blender_asset_publish's "{Asset}_{name}_v{version}.{ext}" pattern.
+  asset_usd_publish_file:
+    definition: '@asset_publish_area/{Asset}_ingest_v{version}.usd'

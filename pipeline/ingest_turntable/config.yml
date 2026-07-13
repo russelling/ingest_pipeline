@@ -1,0 +1,167 @@
+# =============================================================================
+# config.yml -- ingest + turntable pipeline settings
+#
+# Values here are read by watch_folder.py / ingest_asset.py / generate_turntable.py.
+# Anything marked "placeholder" must be filled in for your studio. No
+# credentials live here or anywhere in this pipeline -- see shotgrid.pipeline_config_path
+# below and README.md "Credentials".
+# =============================================================================
+
+shotgrid:
+  # Path to the Toolkit PIPELINE CONFIGURATION itself (the folder containing
+  # both install/ and config/ -- NOT the project/asset storage tree, and NOT
+  # the git checkout alone). Same value as BUF_Mac_watcher/scripts/qt_watcher.py's
+  # CONFIG_PATH constant. sg_utils.get_sgtk() calls
+  # sgtk.sgtk_from_path(pipeline_config_path) to bootstrap both `tk` and `sg`
+  # from this install's own already-configured credentials -- the same call
+  # qt_watcher.py already makes, so if qt_watcher is running on this machine,
+  # this will authenticate the same way with no extra setup.
+  pipeline_config_path:
+    linux: /mnt/projects/buffalo_flow_config
+    mac: /Volumes/atv-post-lucid3/atv-buffalo-s03/buffalo_vfx/buffalo_flow_config
+    windows: "\\\\server\\projects\\buffalo_flow_config"
+  # Name of the Project entity these deliveries land in. Either set project_id
+  # directly, or leave null and pass --project-id on the command line.
+  project_id: null
+
+# Directory watched for new vendor deliveries / external downloads. Must
+# contain one standing subfolder per Asset Type (see ingest.asset_type_folders
+# below) -- e.g. incoming/Prop/, incoming/Character/. Whatever type folder a
+# delivery is dropped into IS its sg_asset_type; nothing is guessed from
+# filenames or content.
+#
+# This is a PLAIN filesystem path, not a Toolkit template/root -- see
+# core/roots_additions.yml for why it deliberately does NOT need a
+# core/roots.yml entry or a ShotGrid Local Storage. mac_path below now
+# lives INSIDE buffalo_vfx/assets/ (moved there directly rather than as a
+# sibling of shots/assets/editorial) -- see the note on qt_watcher.assets_root
+# below about the one side effect of that. linux/windows are unconfirmed
+# placeholders (this appears to be a macOS-only shop today).
+watch_folder:
+  linux_path: /mnt/projects/assets/incoming
+  mac_path: /Volumes/atv-post-lucid3/atv-buffalo-s03/buffalo_vfx/assets/incoming
+  windows_path: "\\\\server\\projects\\assets\\incoming"
+  # Seconds a file/folder's size must be unchanged before it's considered
+  # "done copying" and safe to ingest.
+  stability_window_seconds: 15
+  # How often to re-scan the watch folder, in seconds.
+  poll_interval_seconds: 5
+
+ingest:
+  # File extensions treated as ingestible 3D asset sources.
+  accepted_extensions: [fbx, obj, abc, gltf, glb, max, usd, usdc, usda, usdz]
+  # 3ds Max (.max) source support -- via the "Import Autodesk MAX (.max)"
+  # extension (https://extensions.blender.org/add-ons/io-scene-max/,
+  # https://github.com/nrgsille76/io_scene_max). operator and filepath_arg
+  # below are confirmed directly from that add-on's source
+  # (source/__init__.py): the ImportMax operator's bl_idname is literally
+  # "import_scene.max", and it uses Blender's standard ImportHelper mixin
+  # so its file-path property is the usual "filepath".
+  #
+  # addon_module is the one VERIFY-before-trusting value: this add-on ships
+  # through Blender's newer Extensions system (blender_manifest.toml, id
+  # "io_scene_max"), which registers installed extensions under a
+  # "bl_ext.<repository_id>.<extension_id>" module name rather than the
+  # bare folder name legacy add-ons use -- and the repository_id segment
+  # depends on which extensions repository it was installed from and your
+  # Blender version, so I can't give you a value here I'm fully confident
+  # is correct for your install. To confirm the exact string on the
+  # machine `executables.blender` points at:
+  #   1. Enable the add-on once interactively (Edit > Preferences > Add-ons
+  #      > search "MAX" > enable), then
+  #   2. In Blender's Python console: run
+  #      `[m for m in __import__("addon_utils").modules() if "max" in m.__name__.lower()]`
+  #      and use the `.__name__` it prints.
+  # If it turns out to just be "io_scene_max" (older/legacy-style install),
+  # that works too -- addon_enable() takes whatever the real module name is.
+  max_import:
+    addon_module: "PLACEHOLDER_SET_ME"   # see comment above -- confirm via addon_utils.modules()
+    operator: "import_scene.max"
+    filepath_arg: "filepath"
+  # One standing folder per entry is expected directly under the watch
+  # folder. The folder name IS the sg_asset_type for anything dropped inside
+  # it (case-sensitive, must match ShotGrid's Asset Type list exactly).
+  # watch_folder.py verifies these against ShotGrid's live sg_asset_type
+  # schema at startup (see sg_utils.valid_list_values) and refuses to start
+  # if one doesn't match, rather than silently mis-typing assets.
+  # Defaults here mirror CLAUDE_INSTRUCTIONS.md's "Asset type conventions".
+  asset_type_folders: [Character, Prop, Environment, Vehicle, FX]
+  # Pipeline Step short code to file ingest-stage work/publishes under.
+  # Must exist in ShotGrid's Pipeline Steps list before use -- see README.
+  step_code: ingest
+
+turntable:
+  step_code: turntable
+  frame_start: 1
+  frame_end: 120
+  fps: 24
+  resolution: [1920, 1080]
+  # "EEVEE_NEXT" (fast, default) or "CYCLES" (slower, higher fidelity)
+  render_engine: EEVEE_NEXT
+  # Rendered frames are EXR, not a display-referred format: the existing
+  # qt_watcher / qt_bake_oiio.py pipeline (see README "qt_watcher
+  # integration") expects scene-linear ACEScg EXRs as input, the same as a
+  # Nuke shot render or Unreal MRQ turntable. Do not change this to png/jpg.
+  image_extension: exr
+  # Number of full 360 degree turns the asset (or camera) makes over the
+  # frame range. 1 is standard for a review turntable.
+  turns: 1
+  # Blender's native linear working space, as an alias in your studio's OCIO
+  # config (the same "ocio://studio-config-latest" qt_bake_oiio.py uses).
+  # Blender's default working space is linear Rec.709 primaries -- "lin_rec709"
+  # is the common ACES-config alias for that, but VERIFY this against your
+  # actual OCIO config before relying on it (see README "Color pipeline
+  # verification needed"); if it's wrong the ACEScg conversion below will be
+  # subtly off (wrong primaries) rather than loudly fail.
+  blender_linear_colorspace: lin_rec709
+  # Target space for the EXR handed to qt_watcher -- matches qt_bake_oiio.py's
+  # OCIO_ACESCG constant, do not change independently of that file.
+  target_colorspace: ACEScg
+
+executables:
+  # Mirrors env/includes/software_paths.yml's path.*.blender values (that
+  # file is the source of truth for Toolkit's interactive DCC launching;
+  # this is a separate, duplicated value for this pipeline's headless
+  # subprocess calls -- see config/paths_additions.yml for why there's no
+  # single source of truth between the two). Keep both in sync by hand.
+  blender:
+    linux: /usr/bin/blender
+    mac: /Applications/Blender.app/Contents/MacOS/Blender
+    windows: "C:\\Program Files\\Blender Foundation\\Blender\\blender.exe"
+  # Used for the linear-Rec.709 -> ACEScg color convert pass on rendered
+  # frames, same tool qt_bake_oiio.py already requires (brew install openimageio).
+  oiiotool:
+    linux: /usr/bin/oiiotool
+    mac: /opt/homebrew/bin/oiiotool
+    windows: "C:\\oiio\\bin\\oiiotool.exe"
+
+# qt_watcher integration -- see README "qt_watcher integration". This tool
+# does NOT encode a QuickTime or upload a Version itself. It renders EXR
+# frames and drops a .render_complete_*.json flag where qt_watcher.py (from
+# https://github.com/russelling/BUF_Mac_watcher) will find it, exactly like
+# a Nuke shot render or Unreal MRQ turntable does today.
+qt_watcher:
+  # Must match ASSETS_ROOT in BUF_Mac_watcher/scripts/qt_watcher.py -- the
+  # flag is written somewhere under this tree (we use the turntable render
+  # area) so the watcher's os.walk() picks it up. mac_path below is
+  # confirmed directly against both qt_watcher.py's ASSETS_ROOT constant
+  # and core/roots.yml's `primary` root -- not a guess.
+  assets_root:
+    linux: /mnt/projects/assets
+    mac: /Volumes/atv-post-lucid3/atv-buffalo-s03/buffalo_vfx/assets
+    windows: "\\\\server\\projects\\assets"
+  # "artist" recorded on the flag / burned into the QT. Manifest.yml can
+  # override per-delivery with an `artist:` field; this is the fallback.
+  default_artist: "Ingest Pipeline"
+  # NOTE: watch_folder now lives INSIDE assets_root (assets/incoming), so
+  # qt_watcher.py's os.walk(ASSETS_ROOT) will also traverse incoming/,
+  # incoming/_processed/, and incoming/_failed/ on every poll. Harmless --
+  # none of those ever contain a .render_complete_*.json -- just extra I/O
+  # qt_watcher wasn't doing before. Worth knowing if that machine's poll
+  # ever needs to get faster/cheaper later.
+
+logging:
+  log_dir_linux: /mnt/projects/assets/incoming/_ingest_logs
+  log_dir_mac: /Volumes/atv-post-lucid3/atv-buffalo-s03/buffalo_vfx/assets/incoming/_ingest_logs
+  log_dir_windows: "\\\\server\\projects\\assets\\incoming\\_ingest_logs"
+  level: INFO
