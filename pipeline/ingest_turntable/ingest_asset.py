@@ -198,6 +198,7 @@ def ingest_delivery(path: Path, asset_type: str, config: dict, tk=None, sg=None)
         extras_dir = source_dest.parent / "delivery_contents"
         shutil.copytree(info.delivery_root, extras_dir, dirs_exist_ok=True)
 
+    vendor_delivery_type = sg_utils.find_or_create_published_file_type(sg, "Vendor Delivery")
     sg.create(
         "PublishedFile",
         {
@@ -207,7 +208,7 @@ def ingest_delivery(path: Path, asset_type: str, config: dict, tk=None, sg=None)
             "task": {"type": "Task", "id": ingest_task["id"]} if ingest_task else None,
             "version_number": 1,
             "path": {"local_path": str(source_dest)},
-            "published_file_type": {"type": "PublishedFileType", "name": "Vendor Delivery"},
+            "published_file_type": {"type": "PublishedFileType", "id": vendor_delivery_type["id"]},
         },
     )
 
@@ -221,6 +222,7 @@ def ingest_delivery(path: Path, asset_type: str, config: dict, tk=None, sg=None)
         max_import_config=config["ingest"].get("max_import"),
     )
 
+    usd_asset_type = sg_utils.find_or_create_published_file_type(sg, "USD Asset")
     sg.create(
         "PublishedFile",
         {
@@ -230,7 +232,7 @@ def ingest_delivery(path: Path, asset_type: str, config: dict, tk=None, sg=None)
             "task": {"type": "Task", "id": ingest_task["id"]} if ingest_task else None,
             "version_number": usd_version,
             "path": {"local_path": str(usd_dest)},
-            "published_file_type": {"type": "PublishedFileType", "name": "USD Asset"},
+            "published_file_type": {"type": "PublishedFileType", "id": usd_asset_type["id"]},
         },
     )
 

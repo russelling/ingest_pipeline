@@ -167,6 +167,23 @@ def valid_list_values(sg: Any, entity_type: str, field_name: str) -> Optional[se
     return None
 
 
+def find_or_create_published_file_type(sg: Any, code: str) -> dict:
+    """Look up a PublishedFileType by its `code` field (PublishedFileType's
+    display name is stored in `code`, not `name` -- passing {"type":
+    "PublishedFileType", "name": ...} directly into sg.create()'s linked
+    fields fails with 'invalid/missing entity hash integer id', since
+    ShotGrid entity links require a real `id`, not a `name`/`code`). Creates
+    the type if it doesn't already exist -- PublishedFileType entities are
+    usually pre-seeded by ShotGrid/Toolkit setup, but this avoids a hard
+    failure on a studio that hasn't added "Vendor Delivery" / "USD Asset" /
+    "Turntable Render" yet."""
+    existing = sg.find_one("PublishedFileType", [["code", "is", code]])
+    if existing:
+        return existing
+    log.info("Creating new PublishedFileType '%s' (did not already exist in ShotGrid)", code)
+    return sg.create("PublishedFileType", {"code": code})
+
+
 def next_version_number(sg: Any, entity: dict, published_file_type: str) -> int:
     existing = sg.find(
         "PublishedFile",

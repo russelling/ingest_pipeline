@@ -234,6 +234,7 @@ def render_and_flag(usd_path: Path, asset: dict, project_id: int, task: dict | N
     _verify_frames_written(frame_pattern, tt_cfg["frame_start"], tt_cfg["frame_end"])
     _convert_to_acescg(frame_pattern, tt_cfg["frame_start"], tt_cfg["frame_end"], oiiotool_exe, tt_cfg)
 
+    turntable_render_type = sg_utils.find_or_create_published_file_type(sg, "Turntable Render")
     sg.create(
         "PublishedFile",
         {
@@ -243,7 +244,7 @@ def render_and_flag(usd_path: Path, asset: dict, project_id: int, task: dict | N
             "task": {"type": "Task", "id": task["id"]} if task else None,
             "version_number": version,
             "path": {"local_path": frame_pattern},
-            "published_file_type": {"type": "PublishedFileType", "name": "Turntable Render"},
+            "published_file_type": {"type": "PublishedFileType", "id": turntable_render_type["id"]},
         },
     )
 
@@ -335,4 +336,14 @@ def _do_render_in_blender(args):
 
 
 if __name__ == "__main__" and RUNNING_IN_BLENDER:
-    _do_render_in_blender(_parse_blender_args())
+    # See convert_to_usd.py's matching comment: Blender doesn't propagate an
+    # unhandled exception in a --python script into its own exit code, so
+    # this must catch and sys.exit(1) explicitly or the driver side will see
+    # a false "success" and a confusing downstream "frames missing" error
+    # instead of the real traceback.
+    try:
+        _do_render_in_blender(_parse_blender_args())
+    except Exception:
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)

@@ -6,6 +6,26 @@ Flow/ShotGrid → converts the source geometry to pipeline-standard USD →
 publishes it → renders a 360° turntable in Blender → hands the frames off
 to the studio's existing **qt_watcher** for baking and ShotGrid upload.
 
+**Canonical source**: [`russelling/ingest_pipeline`](https://github.com/russelling/ingest_pipeline).
+The `pipeline/ingest_turntable/` folder in this delivery is meant to be a
+checkout/copy of that repo's contents living inside
+`buffalo_flow_config/config/pipeline/ingest_turntable/` on the render
+machine -- it's tracked independently from `FlowTrackingConfig`'s own git
+history, similar to how `BUF_Mac_watcher` is its own repo rather than
+living inside `FlowTrackingConfig` too. Only `core/templates_ingest_turntable.yml`
+and the asset schema additions actually belong in `FlowTrackingConfig`
+itself (see "Merging into FlowTrackingConfig" below) -- everything under
+`pipeline/ingest_turntable/` belongs in `ingest_pipeline` instead.
+
+If `ingest_pipeline` currently just has a zip file committed to it (e.g.
+`ingest_turntable_pipeline_v7.zip`) rather than the actual files, it's
+worth unpacking that and committing the real tree instead -- a zip blob in
+git can't be diffed, reviewed, or browsed file-by-file, and every new
+version becomes an opaque full-size re-upload rather than a readable
+change. `git rm` the zip, extract it, `git add` the resulting
+`pipeline/ingest_turntable/` contents at the repo root (not nested under
+an extra folder), commit.
+
 **Everything below is checked directly against the live
 `russelling/FlowTrackingConfig` repo on `main` and the live
 `russelling/BUF_Mac_watcher` repo on `main`** -- not assumed from
@@ -295,9 +315,18 @@ unattended watch-folder loop.
    schema"). Ignore the leftover `work/ingest`, `publish/ingest`,
    `work/turntable`, `review/turntable` folders also included in this
    delivery -- unused, explained in that file.
-3. Copy `pipeline/ingest_turntable/` into the repo as-is (e.g. at the repo
-   root, alongside `core/` and `env/`) -- it's a standalone automation tool,
-   not a Toolkit engine/app, so it doesn't need an `env/*.yml` entry.
+3. `pipeline/ingest_turntable/` itself is NOT something to commit into
+   `FlowTrackingConfig` -- it's tracked in its own repo,
+   [`russelling/ingest_pipeline`](https://github.com/russelling/ingest_pipeline)
+   (same pattern as `BUF_Mac_watcher`). On the render machine, check that
+   repo out at `buffalo_flow_config/config/pipeline/ingest_turntable/`
+   (matching the paths already hardcoded in the LaunchAgent plist and
+   `config.yml`'s `shotgrid.pipeline_config_path`) -- a plain `git clone`
+   there, or your preferred way of keeping it updated (submodule, deploy
+   script, whatever `BUF_Mac_watcher` already uses at
+   `buffalo_flow_config_alts/BUF_Mac_watcher`, if anything formal). It
+   doesn't need an `env/*.yml` entry in `FlowTrackingConfig` either way --
+   it's a standalone automation tool, not a Toolkit engine/app.
 4. `CLAUDE_INSTRUCTIONS_ADDITIONS.md` → paste into `CLAUDE_INSTRUCTIONS.md`
    so future sessions know qt_watcher/BUF_Mac_watcher exists and that this
    pipeline depends on it. Also worth fixing there while you're in it: the

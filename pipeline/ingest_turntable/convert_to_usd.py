@@ -210,6 +210,47 @@ def _import_source(bpy_module, source: Path, max_addon_module=None, max_import_o
         raise ValueError(f"No Blender importer wired up for .{ext}")
 
 
+def _usd_export_kwargs(bpy_module, dest: Path) -> dict:
+    """Build kwargs for bpy.ops.wm.usd_export, filtered to only the
+    properties this Blender build's USD exporter operator actually accepts.
+    The operator's keyword set has changed across Blender versions --
+    confirmed on Blender 5.1.2, `export_textures` raised `TypeError:
+    Converting py args to operator properties:: keyword "export_textures"
+    unrecognized` even though it's a valid kwarg on older Blender releases.
+    Rather than hardcode one version's kwarg set (which breaks again on the
+    next Blender upgrade), introspect the operator's rna_type at runtime and
+    only pass what it supports, logging anything dropped so it's visible
+    rather than silently lost."""
+    desired = {
+        "filepath": str(dest),
+        "export_materials": True,
+        "export_textures": True,
+        "export_uvmaps": True,
+        "export_normals": True,
+        "export_animation": False,
+        "evaluation_mode": "RENDER",
+    }
+    try:
+        valid_props = set(bpy_module.ops.wm.usd_export.get_rna_type().properties.keys())
+    except Exception:
+        # Introspection itself failed -- fall back to the full desired set
+        # and let the operator call surface whatever error it wants to.
+        return desired
+
+    kwargs = {k: v for k, v in desired.items() if k in valid_props}
+    dropped = set(desired) - set(kwargs)
+    if dropped:
+        print(
+            f"[convert_to_usd] NOTE: this Blender build's wm.usd_export "
+            f"operator does not support {sorted(dropped)} -- dropped from "
+            f"the export call. Verify the exported USD still has what you "
+            f"expect (e.g. if 'export_textures' is unsupported, check "
+            f"whether textures are still referenced correctly on this "
+            f"Blender version)."
+        )
+    return kwargs
+
+
 def _do_conversion_in_blender(input_path: str, output_path: str, max_addon_module=None, max_import_operator=None, max_filepath_arg="filepath"):
     import bpy
 
@@ -223,23 +264,27 @@ def _do_conversion_in_blender(input_path: str, output_path: str, max_addon_modul
 
     _import_source(bpy, source, max_addon_module, max_import_operator, max_filepath_arg)
 
-    bpy.ops.wm.usd_export(
-        filepath=str(dest),
-        export_materials=True,
-        export_textures=True,
-        export_uvmaps=True,
-        export_normals=True,
-        export_animation=False,
-        evaluation_mode="RENDER",
-    )
+    bpy.ops.wm.usd_export(**_usd_export_kwargs(bpy, dest))
     print(f"[convert_to_usd] wrote {dest}")
 
 
 if __name__ == "__main__" and RUNNING_IN_BLENDER:
-    args = _parse_blender_args()
-    _do_conversion_in_blender(
-        args.input, args.output,
-        max_addon_module=args.max_addon_module,
-        max_import_operator=args.max_import_operator,
-        max_filepath_arg=args.max_filepath_arg,
-    )
+    # Blender does NOT propagate an unhandled exception in a --python script
+    # into its own process exit code -- it prints the traceback and keeps
+    # running, so the subprocess.run() call on the driver side sees
+    # returncode == 0 ("success") even though the conversion actually failed
+    # and no file was written. Catch explicitly and sys.exit(1) so the
+    # driver's `if result.returncode != 0` branch fires and logs the real
+    # traceback instead of the generic "was not created" message.
+    try:
+        args = _parse_blender_args()
+        _do_conversion_in_blender(
+            args.input, args.output,
+            max_addon_module=args.max_addon_module,
+            max_import_operator=args.max_import_operator,
+            max_filepath_arg=args.max_filepath_arg,
+        )
+    except Exception:
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
